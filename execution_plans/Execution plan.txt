@@ -1,0 +1,33 @@
+ORIGINAL QUERY
+
+-> Sort: total_sales DESC, avg_order_value DESC  (actual time=14.9..14.9 rows=35 loops=1)
+    -> Filter: (total_sales > 10000)  (actual time=13.3..14.8 rows=35 loops=1)
+        -> Stream results  (cost=1984 rows=3880) (actual time=13.3..14.8 rows=64 loops=1)
+            -> Group aggregate: count(distinct superstore_final_dataset.order_id), sum(superstore_final_dataset.sales), avg(superstore_final_dataset.sales), max(superstore_final_dataset.order_date)  (cost=1984 rows=3880) (actual time=13.3..14.8 rows=64 loops=1)
+                -> Sort: superstore_final_dataset.region, superstore_final_dataset.category, superstore_final_dataset.sub_category  (cost=1012 rows=9717) (actual time=13.2..13.5 rows=1763 loops=1)
+                    -> Filter: ((superstore_final_dataset.segment = 'Consumer') and (superstore_final_dataset.sales > 120))  (cost=1012 rows=9717) (actual time=0.0504..11.6 rows=1763 loops=1)
+                        -> Table scan on superstore_final_dataset  (cost=1012 rows=9717) (actual time=0.0454..10.1 rows=9800 loops=1)
+
+
+STEP 1 - REFACTOR
+
+-> Sort: filtered.total_sales DESC, filtered.avg_order_value DESC  (cost=7436..7436 rows=3880) (actual time=16.8..16.8 rows=35 loops=1)
+    -> Table scan on filtered  (cost=2372..2423 rows=3880) (actual time=16.7..16.7 rows=35 loops=1)
+        -> Materialize CTE filtered  (cost=2372..2372 rows=3880) (actual time=16.7..16.7 rows=35 loops=1)
+            -> Filter: (sum(superstore_final_dataset.sales) > 10000)  (cost=1984 rows=3880) (actual time=13.9..16.7 rows=35 loops=1)
+                -> Group aggregate: count(distinct superstore_final_dataset.order_id), sum(superstore_final_dataset.sales), avg(superstore_final_dataset.sales), max(superstore_final_dataset.order_date)  (cost=1984 rows=3880) (actual time=13.9..16.7 rows=64 loops=1)
+                    -> Sort: superstore_final_dataset.region, superstore_final_dataset.category, superstore_final_dataset.sub_category  (cost=1012 rows=9717) (actual time=13.8..14 rows=1763 loops=1)
+                        -> Filter: ((superstore_final_dataset.segment = 'Consumer') and (superstore_final_dataset.sales > 120))  (cost=1012 rows=9717) (actual time=0.0505..12.2 rows=1763 loops=1)
+                            -> Table scan on superstore_final_dataset  (cost=1012 rows=9717) (actual time=0.0449..10.1 rows=9800 loops=1)
+
+
+OPTIMIZED QUERY
+
+-> Sort: filtered.total_sales DESC, filtered.avg_order_value DESC  (cost=1960..1960 rows=835) (actual time=11.6..11.6 rows=35 loops=1)
+    -> Table scan on filtered  (cost=1053..1066 rows=835) (actual time=11.6..11.6 rows=35 loops=1)
+        -> Materialize CTE filtered  (cost=1053..1053 rows=835) (actual time=11.6..11.6 rows=35 loops=1)
+            -> Filter: (sum(superstore_final_dataset.sales) > 10000)  (cost=970 rows=835) (actual time=9.14..11.5 rows=35 loops=1)
+                -> Group aggregate: count(distinct superstore_final_dataset.order_id), sum(superstore_final_dataset.sales), avg(superstore_final_dataset.sales), max(superstore_final_dataset.order_date)  (cost=970 rows=835) (actual time=9.13..11.5 rows=64 loops=1)
+                    -> Sort: superstore_final_dataset.region, superstore_final_dataset.category, superstore_final_dataset.sub_category  (cost=794 rows=1763) (actual time=9.04..9.31 rows=1763 loops=1)
+                        -> Index range scan on superstore_final_dataset using idx_segment_sales_cat_subcat over (segment = 'Consumer' AND 120 < sales), with index condition: ((superstore_final_dataset.segment = 'Consumer') and (superstore_final_dataset.sales > 120))  (cost=794 rows=1763) (actual time=0.0578..7.26 rows=1763 loops=1)
+
