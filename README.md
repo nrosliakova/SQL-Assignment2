@@ -1,6 +1,7 @@
 # SQL-Assignment2
 
 i used this kaggle dataset - https://www.kaggle.com/datasets/bhanupratapbiswas/superstore-sales?resource=download
+
 I generated unoptimized query, refactored it by creating CTE "filtered" and adding index, improved readability and structure, used query hints (FORCE INDEX)
 
 before optimization: 
